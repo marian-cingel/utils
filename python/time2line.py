@@ -20,12 +20,15 @@ import sys
 
 
 class Time2Line(object):
-    def __init__(self, serial):
+    def __init__(self, serial, time_mode=""):
         self._state = False
         self._serial = serial
         # preffer time_ns in python3.7
         self._time_fn = time.time_ns if hasattr(time, "time_ns") else time.time
         self._verbose = False
+        self._time_mode = "rel"
+        if time_mode in ["rel", "abs"]:
+            self._time_mode = time_mode
     @property
     def time_fn(self):
         return self._time_fn
@@ -47,14 +50,25 @@ class Time2Line(object):
         return self._state
     def capture(self, log_path):
         self._state = True
+        start_time  = None
+        output_time = "error"
         with open(log_path, "w") as log_file:
             while (self.is_running()):
                 line = self._serial.readline()
                 if not line: continue
-                start_time = self._time_fn()
-                formatted = "{start_time} | {line}".format(
-                    start_time=start_time,
-                    line=line.decode("utf-8", errors='ignore') 
+                current_time = self._time_fn()
+                # capture start time
+                if start_time is None:
+                    start_time = current_time
+                # prepare output_time by time mode
+                if self._time_mode == "abs":
+                    output_time = current_time
+                elif self._time_mode == "rel":
+                    output_time = current_time - start_time
+                # prepare output
+                formatted = "{line_time} | {line_str}".format(
+                    line_time=output_time,
+                    line_str=line.decode("ascii", errors='ignore') 
                 )
                 if (self._verbose):
                     print(formatted)
